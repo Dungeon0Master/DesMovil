@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "TareaApp"
 include(":app")
+include(":wearwatch")
