@@ -32,21 +32,31 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
 import com.example.tareaapp.R
+
 import com.example.tareaapp.presentation.theme.TareaAppTheme
 
+import android.media.MediaPlayer
+
 class MainActivity : ComponentActivity() {
+
+    private lateinit var mediaPlayer: MediaPlayer
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        mediaPlayer= MediaPlayer.create(this, R.raw.coin)
 
         val boton: Button = findViewById(R.id.boton)
         val context = this
         boton.setOnClickListener {
-            Toast.makeText(context, "Alerta", Toast.LENGTH_SHORT).show()
-            val intent= Intent(this@MainActivity, Prueba::class.java)
-            startActivity(intent)
+            //Toast.makeText(context, "Alerta", Toast.LENGTH_SHORT).show()
+            //val intent= Intent(this@MainActivity, Prueba::class.java)
+            //startActivity(intent)
+            if(!mediaPlayer.isPlaying){
+                mediaPlayer.start()
+            }
         }
     }
 }
