@@ -5,6 +5,7 @@
 
 package com.example.tareaapp.presentation
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
@@ -36,101 +37,115 @@ import com.example.tareaapp.R
 import com.example.tareaapp.presentation.theme.TareaAppTheme
 
 import android.media.MediaPlayer
+import android.util.Log
+import com.google.android.gms.tasks.Tasks
+import com.google.android.gms.wearable.MessageClient
+import com.google.android.gms.wearable.MessageEvent
+import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import java.nio.charset.StandardCharsets
 
-class MainActivity : ComponentActivity() {
+// Diapositiva 27: Herencias
+class MainActivity : ComponentActivity(),
+    CoroutineScope by MainScope(),
+    MessageClient.OnMessageReceivedListener {
 
     private lateinit var mediaPlayer: MediaPlayer
 
+    // Diapositiva 28: Variables
+    private var activityContext: Context? = null
+    private var deviceConnected: Boolean = false
+    private val PAYLOAD_PATH = "/CHAT_APP" // Debe ser EXACTAMENTE el mismo que en el celular
+    private lateinit var nodeID: String
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
-
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        mediaPlayer= MediaPlayer.create(this, R.raw.coin)
+
+        activityContext = this
+
+        // Buscar el nodo del celular al iniciar
+        getNodes(this)
+
+        mediaPlayer = MediaPlayer.create(this, R.raw.coin)
 
         val boton: Button = findViewById(R.id.boton)
-        val context = this
+
         boton.setOnClickListener {
-            //Toast.makeText(context, "Alerta", Toast.LENGTH_SHORT).show()
-            //val intent= Intent(this@MainActivity, Prueba::class.java)
-            //startActivity(intent)
+            // Acción 1: Responder al celular
+            sendMessage("¡Hola desde el reloj!")
+
+            // Acción 2: Tu lógica original (abrir actividad y reproducir sonido)
+            Toast.makeText(this, "Alerta enviada", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this@MainActivity, Prueba::class.java)
+            startActivity(intent)
+
             if(!mediaPlayer.isPlaying){
                 mediaPlayer.start()
             }
         }
     }
-}
-@Composable
-fun WearApp(greetingName: String) {
-    TareaAppTheme {
-        AppScaffold {
-            val listState = rememberTransformingLazyColumnState()
-            val transformationSpec = rememberTransformationSpec()
-            ScreenScaffold(
-                scrollState = listState,
-                edgeButton = {
-                    EdgeButton(
-                        onClick = { /*TODO*/ },
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            ),
-                    ) {
-                        Text("More")
-                    }
-                },
-            ) { contentPadding -> // ScreenScaffold provides default padding; adjust as needed
-                TransformingLazyColumn(contentPadding = contentPadding, state = listState) {
-                    item {
-                        ListHeader(
-                            modifier =
-                                Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
-                            transformation = SurfaceTransformation(transformationSpec),
-                        ) {
-                            Text(text = stringResource(R.string.hello_world, greetingName))
-                        }
-                    }
-                    item {
-                        Button(
-                            onClick = { /*TODO*/ },
-                            modifier = Modifier.fillMaxWidth()
-                                .transformedHeight(this, transformationSpec),
-                            transformation = SurfaceTransformation(transformationSpec),
-                        ) {
-                            Text("Button A")
-                        }
-                    }
-                    item {
-                        Button(
-                            onClick = { /*TODO*/ },
-                            modifier = Modifier.fillMaxWidth()
-                                .transformedHeight(this, transformationSpec),
-                            transformation = SurfaceTransformation(transformationSpec),
-                        ) {
-                            Text("Button B")
-                        }
-                    }
-                    item {
-                        Button(
-                            onClick = { /*TODO*/ },
-                            modifier = Modifier.fillMaxWidth()
-                                .transformedHeight(this, transformationSpec),
-                            transformation = SurfaceTransformation(transformationSpec),
-                        ) {
-                            Text("Button C")
-                        }
-                    }
 
+    // Diapositiva 29: Obtener ID del nodo
+    private fun getNodes(context: Context) {
+        launch(Dispatchers.Default) {
+            try {
+                val nodes = Tasks.await(Wearable.getNodeClient(context).connectedNodes)
+                for (node in nodes) {
+                    nodeID = node.id
+                    deviceConnected = true
+                    Log.d("NODO", "Celular encontrado con ID: ${node.id}")
                 }
+            } catch (exception: Exception) {
+                Log.d("Error en el nodo", exception.toString())
             }
         }
     }
-}
 
-@WearPreviewDevices
-@WearPreviewFontScales
-@Composable
-fun DefaultPreview() {
-    WearApp("Preview Android")
+    // Diapositiva 30: Listeners
+    override fun onResume() {
+        super.onResume()
+        try {
+            Wearable.getMessageClient(this).addListener(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            Wearable.getMessageClient(this).removeListener(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // Diapositiva 31: Enviar mensaje
+    private fun sendMessage(textoMensaje: String) {
+        if (deviceConnected && ::nodeID.isInitialized) {
+            Wearable.getMessageClient(this)
+                .sendMessage(nodeID, PAYLOAD_PATH, textoMensaje.toByteArray())
+                .addOnSuccessListener {
+                    Log.d("sendMessage", "Mensaje enviado al celular correctamente")
+                }
+                .addOnFailureListener { e ->
+                    Log.d("sendMessage", "Error al enviar mensaje: ${e.message}")
+                }
+        }
+    }
+
+    // Diapositiva 32: Recibir mensajes
+    override fun onMessageReceived(ME: MessageEvent) {
+        val message = String(ME.data, StandardCharsets.UTF_8)
+        Log.d("onMessageReceived", "Mensaje del celular: $message")
+
+        runOnUiThread {
+            Toast.makeText(this, "Celular dice: $message", Toast.LENGTH_LONG).show()
+        }
+    }
 }
