@@ -5,6 +5,7 @@
 
 package com.example.tareaapp.presentation
 
+import android.app.RemoteInput
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -38,6 +39,7 @@ import com.example.tareaapp.presentation.theme.TareaAppTheme
 
 import android.media.MediaPlayer
 import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
@@ -55,11 +57,24 @@ class MainActivity : ComponentActivity(),
 
     private lateinit var mediaPlayer: MediaPlayer
 
-    // Diapositiva 28: Variables
     private var activityContext: Context? = null
     private var deviceConnected: Boolean = false
-    private val PAYLOAD_PATH = "/CHAT_APP" // Debe ser EXACTAMENTE el mismo que en el celular
+    private val PAYLOAD_PATH = "/CHAT_APP"
     private lateinit var nodeID: String
+
+    // 1. Creamos el lanzador para capturar lo que el usuario escriba en el reloj
+    private val textInputLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val results = RemoteInput.getResultsFromIntent(result.data)
+            val replyText = results?.getCharSequence("respuesta_reloj")?.toString()
+
+            if (!replyText.isNullOrEmpty()) {
+                // Si el usuario escribió algo, lo enviamos al celular
+                sendMessage(replyText)
+                Toast.makeText(this, "Enviando...", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -67,8 +82,6 @@ class MainActivity : ComponentActivity(),
         setContentView(R.layout.activity_main)
 
         activityContext = this
-
-        // Buscar el nodo del celular al iniciar
         getNodes(this)
 
         mediaPlayer = MediaPlayer.create(this, R.raw.coin)
@@ -76,21 +89,24 @@ class MainActivity : ComponentActivity(),
         val boton: Button = findViewById(R.id.boton)
 
         boton.setOnClickListener {
-            // Acción 1: Responder al celular
-            sendMessage("¡Hola desde el reloj!")
-
-            // Acción 2: Tu lógica original (abrir actividad y reproducir sonido)
-            Toast.makeText(this, "Alerta enviada", Toast.LENGTH_SHORT).show()
-            val intent = Intent(this@MainActivity, Prueba::class.java)
-            startActivity(intent)
-
-            if(!mediaPlayer.isPlaying){
-                mediaPlayer.start()
-            }
+            // 2. En lugar de enviar texto fijo, abrimos el teclado/micrófono de Wear OS
+            abrirTecladoReloj()
         }
     }
 
-    // Diapositiva 29: Obtener ID del nodo
+    // 3. Función para invocar el input nativo de Wear OS
+    private fun abrirTecladoReloj() {
+        val remoteInput = RemoteInput.Builder("respuesta_reloj")
+            .setLabel("Escribe un mensaje") // Texto que saldrá arriba del teclado
+            .build()
+
+        val intent = Intent("android.support.wearable.input.action.REMOTE_INPUT")
+        intent.putExtra("android.support.wearable.input.extra.REMOTE_INPUTS", arrayOf(remoteInput))
+
+        // Lanzamos la actividad para esperar el resultado
+        textInputLauncher.launch(intent)
+    }
+
     private fun getNodes(context: Context) {
         launch(Dispatchers.Default) {
             try {
@@ -106,7 +122,6 @@ class MainActivity : ComponentActivity(),
         }
     }
 
-    // Diapositiva 30: Listeners
     override fun onResume() {
         super.onResume()
         try {
@@ -125,7 +140,6 @@ class MainActivity : ComponentActivity(),
         }
     }
 
-    // Diapositiva 31: Enviar mensaje
     private fun sendMessage(textoMensaje: String) {
         if (deviceConnected && ::nodeID.isInitialized) {
             Wearable.getMessageClient(this)
@@ -139,7 +153,6 @@ class MainActivity : ComponentActivity(),
         }
     }
 
-    // Diapositiva 32: Recibir mensajes
     override fun onMessageReceived(ME: MessageEvent) {
         val message = String(ME.data, StandardCharsets.UTF_8)
         Log.d("onMessageReceived", "Mensaje del celular: $message")
