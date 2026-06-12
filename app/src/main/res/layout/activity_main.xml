@@ -13,13 +13,31 @@
         android:layout_height="wrap_content"
         android:hint="Escribe algo aquí..." />
 
-    <!-- El botón -->
+    <!-- El botón original -->
     <Button
         android:id="@+id/botonPasar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Pasar texto"
         android:layout_marginTop="16dp"/>
+
+    <!-- NUEVO: Botón GET -->
+    <Button
+        android:id="@+id/botonGet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="GET - Obtener mensajes"
+        android:layout_marginTop="16dp"
+        android:backgroundTint="#2196F3"/>
+
+    <!-- NUEVO: Botón POST -->
+    <Button
+        android:id="@+id/botonPost"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="POST - Enviar a API"
+        android:layout_marginTop="8dp"
+        android:backgroundTint="#4CAF50"/>
 
     <!-- El label -->
     <TextView
